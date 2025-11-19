@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FraudLens</string>
+
+    <!-- Login Screen -->
+    <string name="welcome_title">Welcome to FraudLens</string>
+    <string name="welcome_subtitle">Secure banking at your fingertips</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Password</string>
+    <string name="sign_in_button">Sign In</string>
+    <string name="biometric_login_button">Use Biometric Login</string>
+    <string name="security_notice">Protected by bank-level security</string>
+
+    <!-- Dashboard Screen -->
+    <string name="good_morning">Good Morning</string>
+    <string name="good_afternoon">Good Afternoon</string>
+    <string name="good_evening">Good Evening</string>
+    <string name="total_balance">Total Balance</string>
+    <string name="transfer_action">Transfer</string>
+    <string name="pay_bills_action">Pay Bills</string>
+    <string name="deposit_action">Deposit</string>
+    <string name="recent_transactions">Recent Transactions</string>
+    <string name="no_recent_transactions">No recent transactions</string>
+    <string name="security_alert">Security Alert</string>
+    <string name="account_secure">Account Secure</string>
+    <string name="security_alerts_count">%d alert(s) require attention</string>
+    <string name="all_security_checks_passed">All security checks passed</string>
+
+    <!-- Transfer Screen -->
+    <string name="transfer_money">Transfer Money</string>
+    <string name="recipient_account">Recipient Account</string>
+    <string name="amount_label">Amount</string>
+    <string name="description_label">Description (Optional)</string>
+    <string name="review_transfer">Review Transfer</string>
+    <string name="confirm_transfer">Confirm Transfer</string>
+    <string name="transfer_successful">Transfer Successful</string>
+    <string name="transfer_failed">Transfer Failed</string>
+
+    <!-- Security Screen -->
+    <string name="security_settings">Security Settings</string>
+    <string name="biometric_authentication">Biometric Authentication</string>
+    <string name="two_factor_auth">Two-Factor Authentication</string>
+    <string name="security_alerts_title">Security Alerts</string>
+    <string name="device_management">Device Management</string>
+    <string name="login_history">Login History</string>
+
+    <!-- Transaction History -->
+    <string name="transaction_history">Transaction History</string>
+    <string name="filter_transactions">Filter Transactions</string>
+    <string name="all_transactions">All Transactions</string>
+    <string name="sent_transactions">Sent</string>
+    <string name="received_transactions">Received</string>
+
+    <!-- Security Levels -->
+    <string name="security_level_low">Low Risk</string>
+    <string name="security_level_medium">Medium Risk</string>
+    <string name="security_level_high">High Risk</string>
+    <string name="security_level_critical">Critical Risk</string>
+
+    <!-- Error Messages -->
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_authentication">Authentication failed. Please try again.</string>
+    <string name="error_insufficient_funds">Insufficient funds for this transaction.</string>
+    <string name="error_invalid_account">Invalid account number.</string>
+    <string name="error_fraud_detected">Transaction blocked due to fraud detection.</string>
+    <string name="error_location_permission">Location permission required for security verification.</string>
+    <string name="error_biometric_not_available">Biometric authentication not available on this device.</string>
+
+    <!-- Success Messages -->
+    <string name="success_login">Login successful</string>
+    <string name="success_transfer">Transfer completed successfully</string>
+    <string name="success_security_update">Security settings updated</string>
+
+    <!-- Permissions -->
+    <string name="permission_location_title">Location Permission Required</string>
+    <string name="permission_location_message">SecurePay needs location access to verify transaction security and prevent fraud.</string>
+    <string name="permission_camera_title">Camera Permission Required</string>
+    <string name="permission_camera_message">Camera access is needed to scan QR codes for quick transfers.</string>
+    <string name="permission_biometric_title">Biometric Permission Required</string>
+    <string name="permission_biometric_message">Enable biometric authentication for secure and convenient login.</string>
+
+    <!-- Navigation -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_transfer">Transfer</string>
+    <string name="nav_history">History</string>
+    <string name="nav_security">Security</string>
+
+    <!-- Common -->
+    <string name="loading">Loading...</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    <string name="continue_text">Continue</string>
+    <string name="back">Back</string>
+    <string name="save">Save</string>
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
+    <string name="enable">Enable</string>
+    <string name="disable">Disable</string>
+
+
+
+</resources>

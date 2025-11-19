@@ -1,0 +1,56 @@
+# 🛡️ Fraud Lens - UPI Fraud Detection System
+
+![Tech Stack](https://img.shields.io/badge/Stack-Kotlin%20|%20React%20|%20FastAPI%20|%20TensorFlow-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+**Fraud Lens** is a comprehensive, multi-modal fraud detection platform designed to secure UPI transactions. It bridges the gap between user-side prevention and bank-side monitoring through real-time risk analysis.
+
+The system operates on two fronts:
+1.  **Pre-Transaction:** A mobile application that analyzes risk in real-time *before* a payment is made.
+2.  **Post-Transaction:** An admin dashboard for banks/auditors to monitor transaction flows and investigate flagged activities.
+
+---
+
+## 🚀 Features
+
+### 📱 Mobile App (User Client)
+* **Built with:** Kotlin & Jetpack Compose
+* **Pre-Transaction Analysis:** Scans transaction context (receiver details, amount patterns) to calculate a risk score before the user enters their UPI PIN.
+* **Real-time Alerts:** Warnings displayed immediately if the ML model detects high-risk parameters.
+* **Secure Interface:** Modern, declarative UI/UX designed for seamless payments.
+
+### 💻 Admin Panel (Bank Dashboard)
+* **Built with:** React.js
+* **Live Monitoring:** Real-time feed of transactions occurring across the network.
+* **Visual Analytics:** Charts and graphs visualizing fraud trends and high-risk zones.
+* **Flag Management:** Interface for administrators to review and resolve flagged transactions stored in Firebase.
+
+### 🧠 The Core (AI & Backend)
+* **Machine Learning:** TensorFlow model trained on transaction datasets to detect anomalies.
+* **API Layer:** FastAPI serves the model predictions to the mobile client with low latency.
+* **Database:** Firebase for real-time data syncing between the app and the admin panel.
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+| :--- | :--- |
+| **Mobile App** | Kotlin, Jetpack Compose |
+| **Web Dashboard** | React.js, JavaScript |
+| **Backend API** | Python, FastAPI |
+| **ML/AI** | TensorFlow, Keras |
+| **Database/Auth** | Google Firebase |
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TD
+    User[User Mobile App] -->|Transaction Data| API[FastAPI Server]
+    API -->|Input Features| ML[TensorFlow Model]
+    ML -->|Risk Score| API
+    API -->|Result| User
+    User -->|Log Transaction| DB[(Firebase Realtime DB)]
+    DB -->|Sync| Admin[React Admin Panel]

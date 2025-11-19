@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors - Professional Banking Blue -->
+    <color name="primary_blue">#1565C0</color>
+    <color name="primary_blue_light">#5E92F3</color>
+    <color name="primary_blue_dark">#003C8F</color>
+
+    <!-- Secondary Colors - Trust Green -->
+    <color name="secondary_green">#2E7D32</color>
+    <color name="secondary_green_light">#60AD5E</color>
+    <color name="secondary_green_dark">#005005</color>
+
+    <!-- Accent Colors -->
+    <color name="accent_orange">#FF6F00</color>
+    <color name="accent_orange_light">#FF9F40</color>
+    <color name="accent_orange_dark">#C43E00</color>
+
+    <!-- Status Colors -->
+    <color name="success_green">#4CAF50</color>
+    <color name="warning_amber">#FF9800</color>
+    <color name="error_red">#F44336</color>
+    <color name="info_blue">#2196F3</color>
+
+    <!-- Neutral Colors -->
+    <color name="neutral_gray_50">#FAFAFA</color>
+    <color name="neutral_gray_100">#F5F5F5</color>
+    <color name="neutral_gray_200">#EEEEEE</color>
+    <color name="neutral_gray_300">#E0E0E0</color>
+    <color name="neutral_gray_400">#BDBDBD</color>
+    <color name="neutral_gray_500">#9E9E9E</color>
+    <color name="neutral_gray_600">#757575</color>
+    <color name="neutral_gray_700">#616161</color>
+    <color name="neutral_gray_800">#424242</color>
+    <color name="neutral_gray_900">#212121</color>
+
+    <!-- Surface Colors -->
+    <color name="surface_light">#FFFFFF</color>
+    <color name="surface_dark">#121212</color>
+    <color name="surface_variant_light">#F3F3F3</color>
+    <color name="surface_variant_dark">#2C2C2C</color>
+
+    <!-- Security Indicator Colors -->
+    <color name="security_high">#4CAF50</color>
+    <color name="security_medium">#FF9800</color>
+    <color name="security_low">#F44336</color>
+    <color name="security_unknown">#9E9E9E</color>
+
+    <!-- Common Material Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="transparent">#00000000</color>
+</resources>
