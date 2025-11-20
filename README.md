@@ -4,6 +4,7 @@
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 Links: FraudLens Admin Panel: https://fraudlens-admin-panel.vercel.app
+
 FraudLens ML Model Demo: https://fraudlens-streamlit.onrender.com/
 
 **Fraud Lens** is a comprehensive, multi-modal fraud detection platform designed to secure UPI transactions. It bridges the gap between user-side prevention and bank-side monitoring through real-time risk analysis.
@@ -49,11 +50,57 @@ The system operates on two fronts:
 
 ## 🏗️ System Architecture
 
+### 1. Core Transaction Fraud Detection
+This flow handles the real-time analysis of UPI transactions using the TensorFlow model.
+
 ```mermaid
 graph TD
-    User[User Mobile App] -->|Transaction Data| API[FastAPI Server]
-    API -->|Input Features| ML[TensorFlow Model]
-    ML -->|Risk Score| API
-    API -->|Result| User
-    User -->|Log Transaction| DB[(Firebase Realtime DB)]
-    DB -->|Sync| Admin[React Admin Panel]
+    %% Client Layer
+    User[User Mobile App]
+    
+    %% Backend & AI Layer
+    API[FastAPI Server]
+    ML[TensorFlow Model]
+    
+    %% Data Layer
+    DB[(Firebase Realtime DB)]
+    Admin[React Admin Panel]
+
+    %% Flow
+    User -->|1. Transaction Data| API
+    API -->|2. Input Features| ML
+    ML -->|3. Risk Score| API
+    API -->|4. Result & Alerts| User
+    User -.->|5. Log Transaction| DB
+    DB <-->|6. Live Sync| Admin
+
+    %% Styling
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style ML fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+```
+```mermaid
+graph TD
+    %% Components
+    User[User Mobile App]
+    API[FastAPI Server]
+    LC[LangChain Orchestrator]
+    Gemini[Google Gemini 1.5 Flash]
+
+    %% Path 1: Smishing (SMS)
+    User -- HTTP POST: SMS Text --> API
+    API -->|Raw Text| LC
+    LC -->|Prompt: SMS Analysis| Gemini
+    Gemini -->|Verdict: Phishing/Safe| LC
+    LC -->|Alert Notification| User
+
+    %% Path 2: Vishing (Voice)
+    User == WebSocket: Audio Stream ==> API
+    API <==>|Bi-directional Stream| LC
+    LC -->|System Prompt: Voice Security| Gemini
+    Gemini -->|Real-time Intervention| LC
+    LC -->|Interrupt/Alert Signal| API
+    API == WebSocket: URGENT WARNING ==> User
+
+    %% Styling
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style Gemini fill:#fff3e0,stroke:#ff9800,stroke-width:2px
