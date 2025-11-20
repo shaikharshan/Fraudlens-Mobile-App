@@ -7,6 +7,8 @@ Links: FraudLens Admin Panel: https://fraudlens-admin-panel.vercel.app
 
 FraudLens ML Model Demo: https://fraudlens-streamlit.onrender.com/
 
+Fraudlens Website:  https://fraudlens-website.vercel.app/
+
 **Fraud Lens** is a comprehensive, multi-modal fraud detection platform designed to secure UPI transactions. It bridges the gap between user-side prevention and bank-side monitoring through real-time risk analysis.
 
 The system operates on two fronts:
