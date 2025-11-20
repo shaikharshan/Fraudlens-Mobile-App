@@ -3,11 +3,21 @@
 ![Tech Stack](https://img.shields.io/badge/Stack-Kotlin%20|%20React%20|%20FastAPI%20|%20TensorFlow-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-Links: FraudLens Admin Panel: https://fraudlens-admin-panel.vercel.app
+---
 
-FraudLens ML Model Demo: https://fraudlens-streamlit.onrender.com/
+## 🚀 Quick Links
 
-Fraudlens Website:  https://fraudlens-website.vercel.app/
+### Live Demos
+*   **Admin Panel:** https://fraudlens-admin-panel.vercel.app
+*   **ML Model Demo:** https://fraudlens-streamlit.onrender.com
+*   **Project Website:** https://fraudlens-website.vercel.app
+
+### Source Code Repositories
+*   **[Web Admin Panel & AI Agent](https://github.com/shaikharshan/FraudLens-Web-Admin-Panel)**: React.js dashboard and AI agent integration.
+*   **[ML Model & Streamlit Demo](https://github.com/shaikharshan/Fraudlens-Streamlit-Model-Demo)**: TensorFlow model and interactive Streamlit demo.
+*   **[Real-time Vishing Detector](https://github.com/shaikharshan/Fraudlens-Realtime-Vishing-Detector)**: FastAPI backend for real-time voice scam detection.
+
+---
 
 **Fraud Lens** is a comprehensive, multi-modal fraud detection platform designed to secure UPI transactions. It bridges the gap between user-side prevention and bank-side monitoring through real-time risk analysis.
 
@@ -17,7 +27,7 @@ The system operates on two fronts:
 
 ---
 
-## 🚀 Features
+## ✨ Features
 
 ### 📱 Mobile App (User Client)
 * **Built with:** Kotlin & Jetpack Compose
@@ -36,6 +46,11 @@ The system operates on two fronts:
 * **API Layer:** FastAPI serves the model predictions to the mobile client with low latency.
 * **Database:** Firebase for real-time data syncing between the app and the admin panel.
 
+### 🤖 AI Agent (Smishing & Vishing Detection)
+* **Built with:** FastAPI, LangChain, Google Gemini
+* **Real-time Smishing Analysis:** Analyzes incoming SMS messages for phishing links and malicious intent.
+* **Live Vishing Intervention:** Listens to voice calls in real-time (via WebSocket) to detect scam patterns and provides immediate alerts to the user.
+
 ---
 
 ## 🛠️ Tech Stack
@@ -45,7 +60,7 @@ The system operates on two fronts:
 | **Mobile App** | Kotlin, Jetpack Compose |
 | **Web Dashboard** | React.js, JavaScript |
 | **Backend API** | Python, FastAPI |
-| **ML/AI** | TensorFlow, Keras |
+| **ML/AI** | TensorFlow, Keras, LangChain, Google Gemini |
 | **Database/Auth** | Google Firebase |
 
 ---
