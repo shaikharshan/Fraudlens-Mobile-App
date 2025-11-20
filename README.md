@@ -3,6 +3,9 @@
 ![Tech Stack](https://img.shields.io/badge/Stack-Kotlin%20|%20React%20|%20FastAPI%20|%20TensorFlow-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+Links: FraudLens Admin Panel: https://fraudlens-admin-panel.vercel.app
+FraudLens ML Model Demo: https://fraudlens-streamlit.onrender.com/
+
 **Fraud Lens** is a comprehensive, multi-modal fraud detection platform designed to secure UPI transactions. It bridges the gap between user-side prevention and bank-side monitoring through real-time risk analysis.
 
 The system operates on two fronts:
