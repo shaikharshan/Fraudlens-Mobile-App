@@ -10,7 +10,6 @@
 ### Live Demos
 *   **Admin Panel:** https://fraudlens-admin-panel.vercel.app
 *   **ML Model Demo:** https://fraudlens-streamlit.onrender.com
-*   **Project Website:** https://fraudlens-website.vercel.app
 
 ### Source Code Repositories
 *   **[Web Admin Panel & AI Agent](https://github.com/shaikharshan/FraudLens-Web-Admin-Panel)**: React.js dashboard and AI agent integration.
