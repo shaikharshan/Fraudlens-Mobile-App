@@ -1,0 +1,26 @@
+name: fraudlens_flutter
+description: Flutter plugin that wraps the FraudLens Android SDK (Kotlin AAR). iOS uses a stub; call your HTTP APIs from Dart on iOS or add native bindings later.
+version: 0.1.0
+publish_to: "none"
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.fraudlens.fraudlens_flutter
+        pluginClass: FraudlensFlutterPlugin
+      ios:
+        pluginClass: FraudlensFlutterPlugin
