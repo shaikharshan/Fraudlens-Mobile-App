@@ -1,0 +1,4 @@
+data/*.parquet
+data/*.json
+model_training/artifacts/
+ml/__pycache__

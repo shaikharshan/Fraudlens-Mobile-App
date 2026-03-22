@@ -1,0 +1,11 @@
+# Synthetic data generation (SDV) + training utilities
+sdv
+pandas
+numpy
+pyyaml
+pyarrow
+scikit-learn
+joblib
+# Fraud API (optional)
+fastapi
+uvicorn[standard]
