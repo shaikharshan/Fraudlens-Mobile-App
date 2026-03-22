@@ -1,0 +1,57 @@
+# --- OS / IDE ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+
+# --- Virtual environments ---
+.venv/
+.venv-*/
+venv/
+ENV/
+env/
+
+# --- Secrets / local config ---
+.env
+.env.*
+!.env.example
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- ML: trained artifacts (often large; commit only if you intend to) ---
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+*.onnx
+
+# --- ML: SDV / synthesis outputs (regenerate with ml/ scripts) ---
+synthetic_api_inputs*.csv
+wide_real_plus_synthetic.csv
+features_manit_9_with_label.csv
+out_augment/
+out_augment_*/
+out_burst*/
+*_augment*/
+
+# --- Android / build outputs ---
+*.apk
+*.aab
+*.keystore
+!debug.keystore
