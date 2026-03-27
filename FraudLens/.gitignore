@@ -13,4 +13,11 @@
 .externalNativeBuild
 .cxx
 local.properties
-/src/main/java/com/example/fraudlens/API_KEYS.kt
+/app/google-services.json
+local.properties
+/app/google-services.json
+.env
+.env.*
+*.keystore
+*.jks
+*.pem

@@ -117,6 +117,7 @@ class RetrofitViewModel {
             val response = modelAPI.predictFraud(input)
             if (response.isSuccessful) {
                 val result = response.body()
+                Log.d("NEW FEATURE RESULT",result.toString())
                 _modelPrediction.value = result  // update StateFlow for UI
                 return@withContext result        // also return the result to caller
             }

@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Lock
-
+import java.util.UUID
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 
@@ -60,10 +60,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
+import com.example.fraudlens.MainActivity
 import com.example.fraudlens.data.local.entities.DEVIATION
 import com.example.fraudlens.data.local.entities.FLAG_COUNTDOWN_SEC
 import com.example.fraudlens.data.local.entities.FirestoreCollection
@@ -74,9 +76,12 @@ import com.example.fraudlens.retrofit.AbuseRiskResult
 import com.example.fraudlens.retrofit.ModelOutput
 import com.example.fraudlens.ui.components.BiometricPromptManager
 import com.example.fraudlens.ui.components.BiometricPromptManager.BiometricResult
+import com.example.fraudlens.ui.components.RazorpayPaymentManager
 import com.example.fraudlens.ui.navigation.Screen
 import com.example.fraudlens.viewmodel.FirestorePaymentViewModel
+import com.example.fraudlens.viewmodel.RazorpayViewModel
 import com.example.fraudlens.viewmodel.RetrofitViewModel
+
 import kotlinx.coroutines.CoroutineScope
 //import com.example.fraudlens.viewmodel.PaymentViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -88,9 +93,17 @@ import kotlinx.coroutines.launch
 @Composable
 fun SendMoneyScreen(
     viewModel: FirestorePaymentViewModel,
-    navController: NavController
+    navController: NavController,
+    razorpayViewModel: RazorpayViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+
+    // Use the manager from MainActivity
+    val razorpayPaymentManager = remember {
+        MainActivity.razorpayManager ?: RazorpayPaymentManager(context as AppCompatActivity)
+    }
+
+
     var recipientVPA by remember { mutableStateOf("") }
     var amountInput by remember { mutableStateOf("") }
     var showConfirmationDialog by remember { mutableStateOf(false) }
@@ -100,6 +113,9 @@ fun SendMoneyScreen(
     var showRecipientTooltip by remember { mutableStateOf(false) }
     val location = viewModel._transactionLocation
     val ip = viewModel._transactionIP
+
+    //razorpay
+    var currentOrderId by remember { mutableStateOf<String?>(null) }
 
     //IP check and location check
     val retrofitViewModel = remember { RetrofitViewModel() }
@@ -138,14 +154,95 @@ fun SendMoneyScreen(
                 is BiometricResult.AuthenticationSuccess -> {
                     showConfirmationDialog = false
                     showRiskDialog = false
-                    onConfirm(currentUser!!, recipientInfo, amountInput.toDoubleOrNull()!!, viewModel, ipRiskResult!!,location.value,
-                        TransactionResponse.APPROVED.value,retrofitViewModel) { result, flag ->
-                        Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
-                        if (flag) {
-                            navController.navigate(Screen.home.route)
-                        } else {
-                            navController.popBackStack()
-                        }
+
+                    val amount = amountInput.toDoubleOrNull()
+                    if (amount != null && currentUser != null && recipientInfo != null && ipRiskResult != null && location.value != null) {
+                        Log.d("BiometricSuccess", "Fingerprint verified, proceeding with Razorpay payment")
+
+                        // Create Razorpay order after biometric success
+                        val uuid = UUID.randomUUID().toString()
+                        val razorpayReceipt = uuid
+
+                        razorpayViewModel.createOrder(
+                            amount = amount,
+                            receipt = razorpayReceipt,
+                            notes = mapOf(
+                                "payer_vpa" to currentUser.bankVPA,
+                                "receiver_vpa" to recipientInfo!!.bankVPA,
+                                "transaction_type" to "transfer_risky"
+                            ),
+                            onSuccess = { orderResponse ->
+                                currentOrderId = orderResponse.id
+                                Log.d("BiometricSuccess", "Order created: ${orderResponse.id}")
+
+                                // Launch Razorpay checkout
+                                razorpayPaymentManager.startPayment(
+                                    orderId = orderResponse.id,
+                                    amount = amount,
+                                    name = currentUser.username,
+                                    description = "Payment to ${recipientInfo!!.username}",
+                                    userEmail = currentUser.email,
+                                    userPhone = currentUser.phone,
+                                    onSuccess = { paymentResult ->
+                                        Log.d("BiometricSuccess", "Payment successful: ${paymentResult.paymentId}")
+
+                                        // Payment successful - record transaction
+                                        onConfirm(
+                                            currentUser,
+                                            recipientInfo,
+                                            amount,
+                                            viewModel,
+                                            ipRiskResult!!,
+                                            location.value,
+                                            TransactionResponse.APPROVED.value,
+                                            retrofitViewModel,
+                                            razorpayOrderId = orderResponse.id,
+                                            razorpayPaymentId = paymentResult.paymentId
+                                        ) { result, flag ->
+                                            Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
+                                            if (flag) {
+                                                navController.navigate(Screen.home.route) {
+                                                    popUpTo(Screen.sendMoney.route) { inclusive = true }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onFailure = { paymentResult ->
+                                        Log.e("BiometricSuccess", "Payment failed: ${paymentResult.errorMessage}")
+                                        Toast.makeText(
+                                            context,
+                                            "Payment failed: ${paymentResult.errorMessage}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+
+                                        // Record failed transaction
+                                        onConfirm(
+                                            currentUser,
+                                            recipientInfo,
+                                            amount,
+                                            viewModel,
+                                            ipRiskResult!!,
+                                            location.value,
+                                            TransactionResponse.BLOCKED.value,
+                                            retrofitViewModel,
+                                            razorpayOrderId = orderResponse.id,
+                                            razorpayPaymentId = null
+                                        ) { _, _ -> }
+                                    }
+                                )
+                            },
+                            onError = { error ->
+                                Log.e("BiometricSuccess", "Order creation failed: $error")
+                                Toast.makeText(
+                                    context,
+                                    "Failed to create payment order: $error",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        )
+                    } else {
+                        Log.e("BiometricSuccess", "Missing required data after fingerprint verification")
+                        Toast.makeText(context, "Error: Missing transaction data", Toast.LENGTH_SHORT).show()
                     }
                 }
                 is BiometricResult.AuthenticationFailed -> {
@@ -222,25 +319,86 @@ fun SendMoneyScreen(
                                         } else {
                                             // Safe, proceed with transaction
                                             showConfirmationDialog = false
-                                            onConfirm(
-                                                currentUser,
-                                                recipientInfo,
-                                                amount,
-                                                viewModel,
-                                                ipRiskResult!!,
-                                                location.value,
-                                                TransactionResponse.APPROVED.value,
-                                                retrofitViewModel
-                                            ) { result, flag ->
-                                                Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
-                                                if (flag) {
-                                                    navController.navigate(Screen.home.route) {
-                                                        popUpTo(Screen.sendMoney.route) { inclusive = true }
-                                                    }
-                                                } else {
-                                                    navController.popBackStack()
+
+                                            // Create Razorpay order
+                                            val uuid = UUID.randomUUID().toString()
+                                            val razorpayReceipt = "$uuid"
+
+                                            razorpayViewModel.createOrder(
+                                                amount = amount,
+                                                receipt = razorpayReceipt,
+                                                notes = mapOf(
+                                                    "payer_vpa" to currentUser.bankVPA,
+                                                    "receiver_vpa" to recipientInfo!!.bankVPA,
+                                                    "transaction_type" to "transfer"
+                                                ),
+                                                onSuccess = { orderResponse ->
+                                                    currentOrderId = orderResponse.id
+
+                                                    // Launch Razorpay checkout
+                                                    razorpayPaymentManager.startPayment(
+                                                        orderId = orderResponse.id,
+                                                        amount = amount,
+                                                        name = currentUser.username,
+                                                        description = "Payment to ${recipientInfo!!.username}",
+                                                        userEmail = currentUser.email,
+                                                        userPhone = currentUser.phone,
+                                                        onSuccess = { paymentResult ->
+                                                            // Payment successful - record transaction
+                                                            onConfirm(
+                                                                currentUser,
+                                                                recipientInfo,
+                                                                amount,
+                                                                viewModel,
+                                                                ipRiskResult!!,
+                                                                location.value,
+                                                                TransactionResponse.APPROVED.value,
+                                                                retrofitViewModel,
+                                                                razorpayOrderId = orderResponse.id,
+                                                                razorpayPaymentId = paymentResult.paymentId
+                                                            ) { result, flag ->
+                                                                Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
+                                                                if (flag) {
+                                                                    navController.navigate(Screen.home.route) {
+                                                                        popUpTo(Screen.home.route) { inclusive = true }
+                                                                    }
+                                                                } else {
+                                                                    navController.popBackStack()
+                                                                }
+                                                            }
+                                                        },
+                                                        onFailure = { paymentResult ->
+                                                            // Payment failed
+                                                            Toast.makeText(
+                                                                context,
+                                                                "Payment failed: ${paymentResult.errorMessage}",
+                                                                Toast.LENGTH_LONG
+                                                            ).show()
+
+                                                            // Record failed transaction
+                                                            onConfirm(
+                                                                currentUser,
+                                                                recipientInfo,
+                                                                amount,
+                                                                viewModel,
+                                                                ipRiskResult!!,
+                                                                location.value,
+                                                                TransactionResponse.BLOCKED.value,
+                                                                retrofitViewModel,
+                                                                razorpayOrderId = orderResponse.id,
+                                                                razorpayPaymentId = null
+                                                            ) { _, _ -> }
+                                                        }
+                                                    )
+                                                },
+                                                onError = { error ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        "Failed to create payment order: $error",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
                                                 }
-                                            }
+                                            )
                                         }
                                     } catch (e: Exception) {
                                         showLoading = false
@@ -334,22 +492,20 @@ fun SendMoneyScreen(
                 }
             )
 
+            // Update the risky dialog to also use Razorpay
             if (showRiskDialog && ipRiskResult != null) {
                 var countdown by remember { mutableStateOf(FLAG_COUNTDOWN_SEC) }
                 var canRetry by remember { mutableStateOf(true) }
 
-                // Start countdown
                 LaunchedEffect(showRiskDialog) {
                     while (countdown > 0) {
                         delay(1000L)
                         countdown--
                     }
-                    // Auto-cancel when timer ends
                     if (countdown == 0) {
                         canRetry = false
                         showRiskDialog = false
 
-                        // Call onConfirm with BLOCKED status
                         onConfirm(
                             currentUser,
                             recipientInfo,
@@ -357,7 +513,10 @@ fun SendMoneyScreen(
                             viewModel,
                             ipRiskResult!!,
                             location.value,
-                            TransactionResponse.BLOCKED.value,retrofitViewModel
+                            TransactionResponse.BLOCKED.value,
+                            retrofitViewModel,
+                            razorpayOrderId = null,
+                            razorpayPaymentId = null
                         ) { result, _ ->
                             Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
                         }
@@ -580,6 +739,7 @@ fun isLocationRisky(deviationFromLast: Double): Boolean{
     return (deviationFromLast >= DEVIATION)
 }
 
+
 @OptIn(ExperimentalCoroutinesApi::class)
 fun onConfirm(
     payer: FirestoreUser,
@@ -590,14 +750,39 @@ fun onConfirm(
     location: Pair<Double, Double>?,
     status: String,
     retrofitViewModel: RetrofitViewModel,
+    razorpayOrderId: String? = null,
+    razorpayPaymentId: String? = null,
     confirmMsg : (result: String,flag: Boolean) -> Unit
 ) {
-    val device =  viewModel.currentDevice.value
-    val deviationFromLast = viewModel.deviationFromLast.value
-    val modelOutput = retrofitViewModel.modelPrediction.value
+    Log.d("onConfirm", "=== START onConfirm ===")
+    Log.d("onConfirm", "Razorpay OrderID: $razorpayOrderId")
+    Log.d("onConfirm", "Razorpay PaymentID: $razorpayPaymentId")
+    Log.d("onConfirm", "Status: $status")
 
-    try{
-        if(device != null && receiver !=null && location != null && modelOutput!=null){
+    val device = viewModel.currentDevice.value
+    val deviationFromLast = viewModel.deviationFromLast.value
+    var modelOutput = retrofitViewModel.modelPrediction.value
+
+    Log.d("onConfirm", "Device: ${device?.deviceId}")
+    Log.d("onConfirm", "Receiver: ${receiver?.username}")
+    Log.d("onConfirm", "Location: $location")
+    Log.d("onConfirm", "ModelOutput: $modelOutput")
+
+    try {
+        if (device != null && receiver != null && location != null) {
+
+            // If model output is null, create a default one (assume safe)
+            if (modelOutput == null) {
+                Log.w("onConfirm", "ModelOutput is null, using default values")
+                modelOutput = ModelOutput(
+                    fraud_probability = 0.0f,
+                    is_fraud = false,
+                    risk_level = "LOW",
+                    txn_id = receiver.userId
+                )
+            }
+
+            Log.d("onConfirm", "All checks passed, adding transaction...")
 
             viewModel.addTransaction(
                 payerUserId = payer.userId,
@@ -613,30 +798,34 @@ fun onConfirm(
                 status = status,
                 ipRiskResult = ipRiskResult,
                 location = location,
-                deviation = deviationFromLast
-
+                deviation = deviationFromLast,
+                razorpayOrderId = razorpayOrderId,
+                razorpayPaymentId = razorpayPaymentId
             )
-            if(status == TransactionResponse.APPROVED.value){
-                viewModel.updateUserBalance(amount,receiver.userId)
+
+            if (status == TransactionResponse.APPROVED.value) {
+                Log.d("onConfirm", "Transaction APPROVED, updating balances...")
+                viewModel.updateUserBalance(amount, receiver.userId)
                 viewModel.loadTransactions(payer.userId)
-                confirmMsg("Amount $amount sent successfully to ${receiver.bankVPA}",true)
+                confirmMsg("Payment of ₹$amount completed successfully to ${receiver.bankVPA}", true)
+            } else {
+                Log.d("onConfirm", "Transaction BLOCKED")
+                confirmMsg("Transaction blocked successfully, thanks to our secure system.", false)
             }
-            else{
-                confirmMsg("Transaction blocked successfully, thanks to our secure system.",false)
-            }
+        } else {
+            Log.e("onConfirm", "NULL CHECK FAILED!")
+            Log.e("onConfirm", "device null: ${device == null}")
+            Log.e("onConfirm", "receiver null: ${receiver == null}")
+            Log.e("onConfirm", "location null: ${location == null}")
 
+            confirmMsg("Error while processing transaction. Our servers are busy. Try again later", false)
         }
-        else{
-            confirmMsg("Error while processing transaction. Our servers are busy. Try again later",false)
-            Log.d("CustomException",device.toString())
-            Log.d("CustomException",receiver.toString())
-            Log.d("CustomException",location.toString())
-            Log.d("CustomException",modelOutput.toString())
-
-        }
-    }catch (e: Exception){
-        Log.d("CustomException",e.toString())
+    } catch (e: Exception) {
+        Log.e("onConfirm", "EXCEPTION in onConfirm", e)
+        confirmMsg("Error: ${e.message}", false)
     }
+
+    Log.d("onConfirm", "=== END onConfirm ===")
 }
 
 @Composable
@@ -675,6 +864,7 @@ suspend fun checkIfTransactionIsRisky(
     val isLocationRisk = isLocationRisky(locationDeviation)
     val modelHealth = retrofitViewModel.modelHealth
     Log.d("modelHealth",modelHealth.value.toString())
+    Log.d("modelHealth","check if txn risky called")
 
     val input = viewModel.prepareModelInput(receiver, amount)
     Log.d("modelHealth",input.toString())

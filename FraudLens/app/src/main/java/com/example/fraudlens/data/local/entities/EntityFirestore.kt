@@ -42,7 +42,10 @@ data class FirestoreTransactions(
     val fraudScore: Float = 0F,
     val ipRiskScore: Float = 0F,
     val locationRiskScore: Float = 0F,
-    val modelDecision: Boolean = false
+    val modelDecision: Boolean = false,
+
+    val razorpayOrderId: String? = null, // Add this
+    val razorpayPaymentId: String? = null // Add this
 )
 data class FirestoreIPLog(
     val ipAddress: String = "",

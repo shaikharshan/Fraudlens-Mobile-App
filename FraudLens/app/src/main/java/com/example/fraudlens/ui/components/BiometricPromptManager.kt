@@ -1,17 +1,11 @@
 package com.example.fraudlens.ui.components
 
-
-import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
-import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
-import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
-import androidx.biometric.BiometricPrompt.PromptInfo
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
-
 
 class BiometricPromptManager(
     private val activity: AppCompatActivity
@@ -25,25 +19,14 @@ class BiometricPromptManager(
         useDeviceCredentials: Boolean = false
     ) {
         val manager = BiometricManager.from(activity)
-        val authenticators = if(useDeviceCredentials){
 
-            if(Build.VERSION.SDK_INT >= 30) {
-            BIOMETRIC_STRONG or DEVICE_CREDENTIAL
-        } else BIOMETRIC_STRONG
-        }else{
-            BIOMETRIC_WEAK
+        val authenticators = if (useDeviceCredentials) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG
         }
 
-        val promptInfo = PromptInfo.Builder()
-            .setTitle(title)
-            .setDescription(description)
-            .setAllowedAuthenticators(authenticators)
-
-        if(Build.VERSION.SDK_INT < 30) {
-            promptInfo.setNegativeButtonText("Cancel")
-        }
-
-        when(manager.canAuthenticate(authenticators)) {
+        when (manager.canAuthenticate(authenticators)) {
             BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
                 resultChannel.trySend(BiometricResult.HardwareUnavailable)
                 return
@@ -59,8 +42,22 @@ class BiometricPromptManager(
             else -> Unit
         }
 
+        val promptInfoBuilder = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(title)
+            .setDescription(description)
+
+        // CRITICAL FIX: Add negative button only when NOT using device credentials
+        if (useDeviceCredentials) {
+            promptInfoBuilder.setAllowedAuthenticators(authenticators)
+        } else {
+            promptInfoBuilder
+                .setAllowedAuthenticators(authenticators)
+                .setNegativeButtonText("Cancel") // Required for Android 15
+        }
+
         val prompt = BiometricPrompt(
             activity,
+            ContextCompat.getMainExecutor(activity),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
@@ -78,15 +75,16 @@ class BiometricPromptManager(
                 }
             }
         )
-        prompt.authenticate(promptInfo.build())
+
+        prompt.authenticate(promptInfoBuilder.build())
     }
 
     sealed interface BiometricResult {
-        data object HardwareUnavailable: BiometricResult
-        data object FeatureUnavailable: BiometricResult
-        data class AuthenticationError(val error: String): BiometricResult
-        data object AuthenticationFailed: BiometricResult
-        data object AuthenticationSuccess: BiometricResult
-        data object AuthenticationNotSet: BiometricResult
+        data object HardwareUnavailable : BiometricResult
+        data object FeatureUnavailable : BiometricResult
+        data class AuthenticationError(val error: String) : BiometricResult
+        data object AuthenticationFailed : BiometricResult
+        data object AuthenticationSuccess : BiometricResult
+        data object AuthenticationNotSet : BiometricResult
     }
 }

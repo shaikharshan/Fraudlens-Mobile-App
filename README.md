@@ -64,6 +64,18 @@ The system operates on two fronts:
 
 ---
 
+## 🔐 Secure local setup (after clone)
+
+For runnable app setup and secret injection, use these project READMEs:
+
+- Native Android app: `FraudLens/README.md`
+- React Native module usage: `react-native-fraudlens/README.md`
+- Flutter plugin + example app: `fraudlens_flutter/README.md`
+
+Do not commit real API keys or `google-services.json`.
+
+---
+
 ## 🏗️ System Architecture
 
 ### 1. Core Transaction Fraud Detection

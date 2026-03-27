@@ -7,6 +7,23 @@ Flutter plugin that talks to the **same FraudLens logic** as the native Android 
 | **Android** | Uses `FraudLensSdk` from `../fraudlens-sdk/fraudlens-android` (you must wire the Gradle module). |
 | **iOS** | **Stub** — every method returns `UNIMPLEMENTED`. Use `package:http` (or similar) to your backends from Dart, or add Swift code later. |
 
+## Clone and run
+
+From repo root:
+
+```bash
+git clone <your-fork-or-repo-url>
+cd FraudLens_Mobile_App
+```
+
+For the included sample app:
+
+```bash
+cd fraudlens_flutter/example
+flutter pub get
+flutter run
+```
+
 ## 1. Add the Android library to the host Gradle project
 
 Flutter’s Android build must know about `:fraudlens-android`. In **`android/settings.gradle.kts`** (for your app or the **`example/`** app), **before** plugins resolve the Flutter embedding, add:
@@ -37,10 +54,10 @@ import 'package:fraudlens_flutter/fraudlens_flutter.dart';
 
 await FraudLensFlutter.initialize({
   'audioBaseUrl': 'https://your-audio-api.example/',
-  'audioApiKey': 'your-key',
-  'abuseIpDbApiKey': '...',
+  'audioApiKey': const String.fromEnvironment('AUDIO_API_KEY'),
+  'abuseIpDbApiKey': const String.fromEnvironment('ABUSEIPDB_API_KEY'),
   'fraudModelBaseUrl': 'https://your-model.example/',
-  'geminiApiKey': '...',
+  'geminiApiKey': const String.fromEnvironment('GEMINI_API_KEY'),
   'enableHttpLogging': false,
 });
 
@@ -49,6 +66,20 @@ final ip = await FraudLensFlutter.checkIpReputation('8.8.8.8');
 ```
 
 Large files: prefer keeping uploads reasonable; the channel passes **byte arrays** in memory.
+
+### Secret injection options
+
+- Use `--dart-define` during run/build:
+
+```bash
+flutter run \
+  --dart-define=AUDIO_API_KEY=... \
+  --dart-define=ABUSEIPDB_API_KEY=... \
+  --dart-define=GEMINI_API_KEY=...
+```
+
+- Or use a secure env loader in your app layer.
+- Never commit real keys in Dart source.
 
 ## 4. Example app
 

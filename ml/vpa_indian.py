@@ -150,9 +150,20 @@ def rewrite_vpa_columns(
     df: pd.DataFrame,
     rng: np.random.Generator,
     cols: tuple[str, ...] = ("PAYER_VPA", "BENEFICIARY_VPA"),
+    *,
+    label_conditioned: bool = True,
 ) -> pd.DataFrame:
-    """Prefer :func:`inject_vpa_by_fraud_label` when IS_FRAUD is present."""
-    if "IS_FRAUD" in df.columns:
+    """
+    Rewrite VPA strings into valid Indian UPI-like shapes.
+
+    By default, this preserves the legacy behavior: if ``label_conditioned`` is True and
+    ``IS_FRAUD`` is present, it will overwrite VPA lengths based on the label so SDV learns a
+    strong VPA-length correlation.
+
+    For production-like training (raw VPAs at inference), set ``label_conditioned=False`` so
+    VPA shapes are normalized without leaking label-conditioned length patterns into the model.
+    """
+    if label_conditioned and "IS_FRAUD" in df.columns:
         inject_vpa_by_fraud_label(df, rng)
         return df
     for c in cols:

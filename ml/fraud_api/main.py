@@ -22,29 +22,32 @@ _ML_DIR = Path(__file__).resolve().parents[1]
 if str(_ML_DIR) not in sys.path:
     sys.path.insert(0, str(_ML_DIR))
 
-from config import MAX_DEVICE_USER_COUNT, MAX_TXN_COUNT_1H  # noqa: E402
-from model_training.features import build_feature_frame  # noqa: E402
+from fraud_api.config import (  # noqa: E402
+    MAX_AMOUNT_SUM_1H,
+    MAX_CONSECUTIVE_FAILURES,
+    MAX_DEVICE_USER_COUNT,
+    MAX_FAILED_TXN_COUNT_24H,
+    MAX_TXN_COUNT_1H,
+)
+from fraud_api.features import build_feature_frame  # noqa: E402
 
-DEFAULT_MODEL_REL = Path("model_training") / "logistic_regression_model.pkl"
+# Easiest local workflow:
+# - Copy your trained bundle (.pkl containing {"model", "beneficiary_encoder", ...})
+#   into this same folder: `fraud_api/`
+# - Set this filename to match.
+LOCAL_MODEL_FILENAME = "random_forest_model.pkl"
 
 
 def _resolve_model_path() -> Path:
-    env = os.environ.get("FRAUD_MODEL_PATH")
-    if env:
-        p = Path(env)
+
+    # 2) Local/dev: load model placed in ml/fraud_api/
+    fraud_api_dir = Path(__file__).resolve().parent
+    if LOCAL_MODEL_FILENAME:
+        p = fraud_api_dir / LOCAL_MODEL_FILENAME
         if p.is_file():
             return p.resolve()
-        alt = _ML_DIR / p
-        if alt.is_file():
-            return alt.resolve()
-        return p.resolve()
-    best = _ML_DIR / "model_training" / "artifacts" / "best_model.txt"
-    if best.is_file():
-        name = best.read_text(encoding="utf-8").strip()
-        p = _ML_DIR / "model_training" / "artifacts" / f"{name}_model.pkl"
-        if p.is_file():
-            return p
-    return _ML_DIR / DEFAULT_MODEL_REL
+
+ 
 
 
 MODEL_PATH = _resolve_model_path()
@@ -81,6 +84,11 @@ def startup_load_model():
 class TransactionData(BaseModel):
     txn_id: str
     AMOUNT: float = Field(..., description="Transaction amount")
+    amount_sum_1h: float = Field(
+        ...,
+        ge=0,
+        description="Total sent amount from payer VPA in last 1h (app/server computed)",
+    )
     TXN_TIMESTAMP: str = Field(..., description="ISO or parseable datetime string")
     PAYER_VPA: str
     BENEFICIARY_VPA: str
@@ -105,6 +113,7 @@ def _rows_to_df(transactions: List[TransactionData]) -> pd.DataFrame:
             {
                 "TXN_TIMESTAMP": t.TXN_TIMESTAMP,
                 "AMOUNT": t.AMOUNT,
+                "amount_sum_1h": t.amount_sum_1h,
                 "PAYER_VPA": t.PAYER_VPA,
                 "BENEFICIARY_VPA": t.BENEFICIARY_VPA,
                 "PAYER_IFSC": t.PAYER_IFSC,
@@ -120,6 +129,9 @@ def _rows_to_df(transactions: List[TransactionData]) -> pd.DataFrame:
     df = pd.DataFrame(rows)
     df["device_user_count"] = df["device_user_count"].clip(lower=1, upper=MAX_DEVICE_USER_COUNT).astype(int)
     df["txn_count_1h"] = df["txn_count_1h"].clip(lower=1, upper=MAX_TXN_COUNT_1H).astype(int)
+    df["amount_sum_1h"] = df["amount_sum_1h"].clip(lower=0.0, upper=MAX_AMOUNT_SUM_1H).astype(float)
+    df["failed_txn_count_24h"] = df["failed_txn_count_24h"].clip(lower=0, upper=MAX_FAILED_TXN_COUNT_24H).astype(int)
+    df["consecutive_failures"] = df["consecutive_failures"].clip(lower=0, upper=MAX_CONSECUTIVE_FAILURES).astype(int)
     return df
 
 

@@ -21,15 +21,17 @@ from config import (
     DEFAULT_INPUT_CSV,
     DEFAULT_PREPARED_PATH,
     DEFAULT_RANDOM_SEED,
+    MAX_AMOUNT_SUM_1H,
     MAX_DEVICE_USER_COUNT,
     MAX_TXN_COUNT_1H,
     SDV_DEVICE_CAP_VALUE,
 )
 from fraud_feature_distributions import (
     inject_rolling_features_by_is_fraud,
+    sample_amount_sum_1h_by_is_fraud,
     sample_device_and_txn_overlap,
 )
-from vpa_indian import inject_vpa_by_fraud_label
+from vpa_indian import rewrite_vpa_columns
 
 
 def _map_initiation_mode(raw: str) -> str:
@@ -89,6 +91,14 @@ def apply_rolling_features_by_is_fraud(df: pd.DataFrame, rng: np.random.Generato
     df["consecutive_failures"] = conv
 
 
+def apply_amount_sum_by_is_fraud(df: pd.DataFrame, rng: np.random.Generator) -> None:
+    """Re-apply amount_sum_1h from IS_FRAUD + txn_count_1h (e.g. after SDV sampling)."""
+    mask = df["IS_FRAUD"].astype(int).to_numpy() == 1
+    txn = pd.to_numeric(df["txn_count_1h"], errors="coerce").fillna(1).clip(1, MAX_TXN_COUNT_1H).astype(int).to_numpy()
+    amt = sample_amount_sum_1h_by_is_fraud(txn, mask, rng)
+    df["amount_sum_1h"] = np.clip(amt, 0.0, float(MAX_AMOUNT_SUM_1H))
+
+
 def apply_threshold_separation_by_is_fraud(df: pd.DataFrame, rng: np.random.Generator) -> None:
     """
     Overwrite ``device_user_count`` and ``txn_count_1h`` from ``IS_FRAUD`` using the same
@@ -127,8 +137,9 @@ def prepare_dataframe(
     ``failed_txn_count_24h`` and ``consecutive_failures`` are injected with
     label-conditional distributions for SDV to learn realistic correlations.
 
-    VPAs are overwritten with fraud-conditioned lengths (short legit; fraud payer
-    medium, beneficiary long) before device_user_count is derived from PAYER_VPA.
+    VPAs are normalized to valid UPI-like shapes, but are NOT overwritten with
+    label-conditioned lengths. This keeps the model less sensitive to VPA length
+    and better aligned with raw/mobile VPAs at inference.
 
     device_feature_mode:
         historical — derive counts from DEVICE_ID + timestamps only.
@@ -152,7 +163,7 @@ def prepare_dataframe(
     out["DEVICE_ID"] = df["DEVICE_ID"].astype(str)
 
     rng = np.random.default_rng(random_seed)
-    inject_vpa_by_fraud_label(out, rng)
+    rewrite_vpa_columns(out, rng, label_conditioned=False)
 
     nunique_payer = out.groupby("DEVICE_ID")["PAYER_VPA"].transform("nunique")
     hist_device = nunique_payer.clip(lower=1).astype(np.int64)
@@ -184,6 +195,11 @@ def prepare_dataframe(
 
     out["device_user_count"] = out["device_user_count"].clip(lower=1, upper=MAX_DEVICE_USER_COUNT).astype(int)
     out["txn_count_1h"] = out["txn_count_1h"].clip(lower=1, upper=MAX_TXN_COUNT_1H).astype(int)
+    out["amount_sum_1h"] = sample_amount_sum_1h_by_is_fraud(
+        out["txn_count_1h"].to_numpy(dtype=np.int64),
+        fraud_mask,
+        rng,
+    )
     _apply_time_features(out)
 
     # SDV CAG helpers
@@ -225,6 +241,7 @@ def dataframe_for_sdv(df: pd.DataFrame) -> pd.DataFrame:
         "consecutive_failures",
         "device_user_count",
         "txn_count_1h",
+        "amount_sum_1h",
         "hour",
         "is_weekend",
         "is_night",

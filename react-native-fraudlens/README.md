@@ -2,6 +2,22 @@
 
 React Native native module that wraps the **FraudLens Android SDK** (`fraudlens-android`). Same idea as the Flutter plugin: **Android** runs Kotlin; **iOS** stubs reject (use HTTP from JS or add native code).
 
+## Clone and run (host app)
+
+This folder is a native module, not a standalone RN app. To run it, use a host React Native app and link this module.
+
+```bash
+git clone <your-fork-or-repo-url>
+cd FraudLens_Mobile_App
+```
+
+In your host RN app:
+
+```bash
+yarn add file:../FraudLens_Mobile_App/react-native-fraudlens
+# or npm install ../FraudLens_Mobile_App/react-native-fraudlens
+```
+
 ## Install (monorepo / local path)
 
 ```bash
@@ -27,6 +43,25 @@ Autolinking injects **`FraudLensPackage`** via **`react-native.config.js`**. If 
 ## Firebase
 
 If you use `initialize()` with features that touch Firestore, apply **`google-services`** on the **app** module and add **`google-services.json`** (same as native).
+
+## Secrets setup (do not commit)
+
+Pass API keys at runtime through `initialize(...)`. Do not hardcode secrets in source.
+
+```ts
+await initialize({
+  audioBaseUrl: "https://your-audio.example/",
+  audioApiKey: process.env.AUDIO_API_KEY ?? "",
+  abuseIpDbApiKey: process.env.ABUSEIPDB_API_KEY ?? "",
+  fraudModelBaseUrl: "https://your-model.example/",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+});
+```
+
+Recommended:
+- use `.env` with a loader such as `react-native-config` in your host app
+- add `.env*` to `.gitignore`
+- set CI secrets in your build pipeline (GitHub Actions, Bitrise, etc.)
 
 ## JavaScript / TypeScript
 

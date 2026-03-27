@@ -54,29 +54,31 @@ data class AbuseRiskResult(
 data class ModelInput(
     val txn_id: String,
     val AMOUNT: Double,
+    val amount_sum_1h: Double,
     val TXN_TIMESTAMP: String,
     val PAYER_VPA: String,
     val BENEFICIARY_VPA: String,
     val PAYER_IFSC: String,
     val BENEFICIARY_IFSC: String,
-    val TRN_STATUS: String = "SUCCESS",
-    val RESPONSE_CODE: String = "00",
     val INITIATION_MODE: String = "APP",
     val TRANSACTION_TYPE: String = "P2P",
     val device_user_count: Int,
-    val txn_count_1h: Int
+    val txn_count_1h: Int,
+    val failed_txn_count_24h: Int,
+    val consecutive_failures: Int
 )
 
 data class ModelOutput(
     val txn_id: String,
-    val is_fraud: Boolean,
-    val fraud_probability: Float,
-    val risk_level: String
+    val is_fraud: Boolean = false,
+    val fraud_probability: Float = 0.0f,
+    val risk_level: String = "LOW"
 )
 
 data class ModelHealthOutput(
     val status :String,
-    val model_loaded: Boolean
+    val model_loaded: Boolean,
+    val model_path:String
 )
 
 
@@ -161,3 +163,34 @@ data class Content(
 data class Part(
     val text: String?
 )
+
+//razorpay
+data class RazorpayOrderRequest(
+    val amount: Int, // Amount in paise (100 paise = 1 INR)
+    val currency: String = "INR",
+    val receipt: String,
+    val notes: Map<String, String>? = null
+)
+
+data class RazorpayOrderResponse(
+    val id: String,
+    val entity: String,
+    val amount: Int,
+    val amount_paid: Int,
+    val amount_due: Int,
+    val currency: String,
+    val receipt: String,
+    val status: String,
+    val attempts: Int,
+    val notes: Map<String, String>?,
+    val created_at: Long
+)
+
+data class RazorpayPaymentResult(
+    val orderId: String,
+    val paymentId: String?,
+    val signature: String?,
+    val isSuccess: Boolean,
+    val errorMessage: String? = null
+)
+

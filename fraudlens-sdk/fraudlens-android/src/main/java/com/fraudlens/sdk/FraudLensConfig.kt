@@ -17,8 +17,8 @@ data class FraudLensConfig(
     /** AbuseIPDB — use [abuseIpDbApiKey] with default [abuseIpDbBaseUrl]. */
     val abuseIpDbBaseUrl: String = "https://api.abuseipdb.com/api/v2/",
     val abuseIpDbApiKey: String? = null,
-    /** FastAPI fraud model host (e.g. Render). */
-    val fraudModelBaseUrl: String = "",
+    /** FastAPI fraud model host (Render deployed model API). */
+    val fraudModelBaseUrl: String = "https://fraudlens-updated-model-api.onrender.com/",
     /** Google AI Gemini REST (generativelanguage.googleapis.com path is added internally). */
     val geminiApiKey: String? = null,
     val enableHttpLogging: Boolean = false,

@@ -1,4 +1,7 @@
 data/*.parquet
 data/*.json
 model_training/artifacts/
-ml/__pycache__
+model_training/artifacts1/
+model_training/artifacts2/
+
+__pycache__

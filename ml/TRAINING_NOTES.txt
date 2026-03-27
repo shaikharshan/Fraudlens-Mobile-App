@@ -16,3 +16,59 @@ VPAs: before device_user_count is computed, payer/beneficiary strings are replac
 
 Full 50k regeneration (from repo root, venv on):
   python ml/generate_synthetic.py --rows 50000 --refit --stratified-sampling --stratified-empirical --night-fraud-boost 1.25 --seed 42 --device-features fraud_correlated --synthesizer copula
+
+
+
+## Regenerate synthetic data + retrain (high recall, less VPA sensitivity)
+
+These commands regenerate a synthetic dataset where the dominant fraud signals are:
+`device_user_count`, `txn_count_1h`, `failed_txn_count_24h`, and `consecutive_failures`, while VPAs are normalized but not label-conditioned.
+
+From repo root:
+
+```powershell
+pip install -r ml/requirements.txt
+
+# Regenerate synthetic dataset (CSV written next to parquet)
+python ml/generate_synthetic.py --rows 50000 --refit --stratified-sampling --stratified-empirical --device-features fraud_correlated
+
+# Train models on the generated dataset
+python ml/model_training/train.py --csv ml/data/synthetic_transactions.csv --out ml/model_training/artifacts --seed 42
+```
+
+Then run the API using the chosen model artifact (or `best_model.txt`):
+
+```powershell
+cd ml
+$env:FRAUD_MODEL_PATH = "model_training/artifacts/logistic_regression_model.pkl"
+uvicorn fraud_api.main:app --host 0.0.0.0 --port 8000
+```
+
+### Android (Retrofit / OkHttp)
+
+```kotlin
+// POST to "${baseUrl}/predict" with JSON body matching TransactionData fields
+// Use Gson or kotlinx.serialization for the request DTO
+```
+
+### Flutter / Dart
+
+```dart
+final uri = Uri.parse('$baseUrl/predict');
+final response = await http.post(
+  uri,
+  headers: {'Content-Type': 'application/json'},
+  body: jsonEncode({
+    'txn_id': id,
+    'AMOUNT': amount,
+    'TXN_TIMESTAMP': timestampIso,
+    // ... all required fields
+  }),
+);
+```
+
+## Deploy (outline)
+
+- **Container:** Docker image with `python`, copy `ml/` (or `ml/fraud_api` + `ml/model_training/artifacts` + `ml/model_training/features.py` + `ml/config.py`), `WORKDIR ml`, `CMD ["uvicorn", "fraud_api.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
+- **Cloud:** Any service that runs a Python process (Cloud Run, Fly.io, ECS, etc.); set `FRAUD_MODEL_PATH` to the artifact path inside the image.
+- **Scaling:** Model is in-memory; use one process per vCPU or load-balance with sticky sessions not required (stateless).

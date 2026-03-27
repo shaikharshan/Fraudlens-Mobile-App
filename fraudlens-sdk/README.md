@@ -117,7 +117,7 @@ FraudLensSdk.initialize(
         videoBaseUrl = "https://arshan123-vnitx-video.hf.space",
         videoApiKey = BuildConfig.VIDEO_API_KEY,
         abuseIpDbApiKey = BuildConfig.ABUSEIPDB_KEY,
-        fraudModelBaseUrl = "https://fraudlens-fastapi.onrender.com/",
+        fraudModelBaseUrl = "https://fraudlens-updated-model-api.onrender.com/",
         geminiApiKey = BuildConfig.GEMINI_API_KEY,
         enableHttpLogging = BuildConfig.DEBUG,
     ),

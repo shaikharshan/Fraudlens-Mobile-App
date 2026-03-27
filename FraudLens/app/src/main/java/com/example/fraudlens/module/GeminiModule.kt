@@ -24,7 +24,8 @@ object GeminiModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    @GeminiClient  // Add qualifier
+    fun provideGeminiOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
@@ -40,8 +41,9 @@ object GeminiModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(
-        okHttpClient: OkHttpClient,
+    @GeminiRetrofit  // Add qualifier
+    fun provideGeminiRetrofit(
+        @GeminiClient okHttpClient: OkHttpClient,  // Use qualifier
         gson: Gson
     ): Retrofit {
         return Retrofit.Builder()
@@ -53,7 +55,7 @@ object GeminiModule {
 
     @Provides
     @Singleton
-    fun provideGeminiAPI(retrofit: Retrofit): GeminiAPI {
+    fun provideGeminiAPI(@GeminiRetrofit retrofit: Retrofit): GeminiAPI {  // Use qualifier
         return retrofit.create(GeminiAPI::class.java)
     }
 
@@ -68,7 +70,7 @@ object GeminiModule {
     @Provides
     @Singleton
     fun provideGeminiApiManager(
-        okHttpClient: OkHttpClient,
+        @GeminiClient okHttpClient: OkHttpClient,  // Use qualifier
         gson: Gson
     ): GeminiApiManager {
         return GeminiApiManager(okHttpClient, gson)

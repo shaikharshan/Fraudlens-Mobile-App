@@ -19,6 +19,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.fraudlens.ui.components.BiometricPromptManager
+import com.example.fraudlens.ui.components.RazorpayPaymentManager
 import com.example.fraudlens.ui.navigation.Screen
 import com.example.fraudlens.ui.screens.BiometricScreen
 import com.example.fraudlens.ui.screens.*
@@ -26,12 +27,18 @@ import com.example.fraudlens.ui.screens.SignIn
 import com.example.fraudlens.ui.screens.SignUp
 import com.example.fraudlens.ui.theme.FraudLensTheme
 import com.example.fraudlens.viewmodel.FirestorePaymentViewModel
+import com.razorpay.PaymentResultListener
 //import com.example.fraudlens.viewmodel.PaymentViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(),PaymentResultListener {
+
+    companion object {
+        var razorpayManager: RazorpayPaymentManager? = null
+    }
+
 
     private val promptManager by lazy {
         BiometricPromptManager(this)
@@ -42,6 +49,9 @@ class MainActivity : AppCompatActivity() {
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        razorpayManager = RazorpayPaymentManager(this)
+
         enableEdgeToEdge()
         setContent {
             FraudLensTheme {
@@ -119,6 +129,15 @@ class MainActivity : AppCompatActivity() {
 
             }
         }
+
+    }
+
+    override fun onPaymentSuccess(razorpayPaymentId: String?) {
+        razorpayManager?.handlePaymentSuccess(razorpayPaymentId)
+    }
+
+    override fun onPaymentError(code: Int, response: String?) {
+        razorpayManager?.handlePaymentError(code, response)
     }
 
 

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -22,6 +23,20 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use { localProperties.load(it) }
+        }
+
+        fun localSecret(name: String): String {
+            return localProperties.getProperty(name) ?: ""
+        }
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localSecret("GEMINI_API_KEY")}\"")
+        buildConfigField("String", "IPDB_API_KEY", "\"${localSecret("IPDB_API_KEY")}\"")
+        buildConfigField("String", "RAZORPAY_KEY_ID", "\"${localSecret("RAZORPAY_KEY_ID")}\"")
+        buildConfigField("String", "RAZORPAY_KEY_SECRET", "\"${localSecret("RAZORPAY_KEY_SECRET")}\"")
 
 
     }
@@ -42,6 +57,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -95,6 +111,8 @@ dependencies {
     implementation(libs.camera.lifecycle)
     implementation(libs.camera.view)
 
+    //razorpay
+    implementation("com.razorpay:checkout:1.6.40")
 
     // Compose and UI libraries
     implementation(platform("androidx.compose:compose-bom:2025.05.00"))

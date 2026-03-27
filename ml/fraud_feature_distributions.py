@@ -14,17 +14,26 @@ from __future__ import annotations
 
 import numpy as np
 
-from config import MAX_DEVICE_USER_COUNT, MAX_TXN_COUNT_1H
+from config import (
+    MAX_AMOUNT_SUM_1H,
+    MAX_CONSECUTIVE_FAILURES,
+    MAX_DEVICE_USER_COUNT,
+    MAX_FAILED_TXN_COUNT_24H,
+    MAX_TXN_COUNT_1H,
+)
 
 
 def sample_device_user_count(fraud_mask: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Overlapping categorical distributions over 1..MAX_DEVICE_USER_COUNT."""
+    """Label-conditional categorical distributions over 1..MAX_DEVICE_USER_COUNT.
+
+    Tuned to make device_user_count a strong fraud signal (higher recall).
+    """
     n = len(fraud_mask)
     out = np.empty(n, dtype=np.int64)
     vals = np.arange(1, MAX_DEVICE_USER_COUNT + 1, dtype=np.int64)
-    # Legit: mostly 1–2; fraud: mostly 3–4; overlap on 2–3
-    p_legit = np.array([0.42, 0.36, 0.14, 0.08], dtype=float)
-    p_fraud = np.array([0.07, 0.11, 0.32, 0.50], dtype=float)
+    # Legit: overwhelmingly 1–2; Fraud: overwhelmingly 3–4
+    p_legit = np.array([0.74, 0.22, 0.03, 0.01], dtype=float)
+    p_fraud = np.array([0.01, 0.04, 0.25, 0.70], dtype=float)
     fi = np.flatnonzero(fraud_mask)
     li = np.flatnonzero(~fraud_mask)
     if len(li):
@@ -35,19 +44,13 @@ def sample_device_user_count(fraud_mask: np.ndarray, rng: np.random.Generator) -
 
 
 def sample_txn_count_1h(fraud_mask: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Overlapping 1..MAX_TXN_COUNT_1H; fraud mass shifted toward higher counts."""
+    """Overlapping 1..MAX_TXN_COUNT_1H with fraud sensitivity at moderate values."""
     n = len(fraud_mask)
     out = np.empty(n, dtype=np.int64)
     vals = np.arange(1, MAX_TXN_COUNT_1H + 1, dtype=np.int64)
-    # Skew legit low, fraud high; both cover full range
-    p_legit = np.array(
-        [0.12, 0.11, 0.10, 0.09, 0.08, 0.08, 0.07, 0.06, 0.06, 0.05, 0.05, 0.04, 0.04, 0.03, 0.02],
-        dtype=float,
-    )
-    p_fraud = np.array(
-        [0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10, 0.11, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06, 0.06],
-        dtype=float,
-    )
+    # Legit: heavy mass near 1–3; Fraud: heavy mass near ~6–12
+    p_legit = np.exp(-0.7 * (vals - 1))
+    p_fraud = np.exp(-0.35 * (MAX_TXN_COUNT_1H - vals))
     p_legit /= p_legit.sum()
     p_fraud /= p_fraud.sum()
     fi = np.flatnonzero(fraud_mask)
@@ -74,12 +77,12 @@ def sample_device_and_txn_overlap(
 
 
 def sample_failed_txn_count_24h(fraud_mask: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Overlapping counts 0..10; legit has substantial non-zero mass."""
+    """Label-conditional counts 0..MAX_FAILED_TXN_COUNT_24H with fraud lift at 3+."""
     n = len(fraud_mask)
     out = np.empty(n, dtype=np.int64)
-    vals = np.arange(0, 11, dtype=np.int64)
-    p_legit = np.array([18, 20, 16, 14, 12, 8, 5, 4, 2, 1, 1], dtype=float)
-    p_fraud = np.array([5, 8, 10, 12, 14, 15, 12, 10, 8, 4, 2], dtype=float)
+    vals = np.arange(0, MAX_FAILED_TXN_COUNT_24H + 1, dtype=np.int64)
+    p_legit = np.exp(-0.65 * vals)  # mostly 0–2
+    p_fraud = np.exp(-0.25 * (MAX_FAILED_TXN_COUNT_24H - vals))  # skew toward higher failures
     p_legit /= p_legit.sum()
     p_fraud /= p_fraud.sum()
     fi = np.flatnonzero(fraud_mask)
@@ -92,12 +95,12 @@ def sample_failed_txn_count_24h(fraud_mask: np.ndarray, rng: np.random.Generator
 
 
 def sample_consecutive_failures(fraud_mask: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    """Overlapping 0..6; legit often 0–1 but not ~90% at 0."""
+    """Label-conditional 0..MAX_CONSECUTIVE_FAILURES with fraud lift at 2+."""
     n = len(fraud_mask)
     out = np.empty(n, dtype=np.int64)
-    vals = np.arange(0, 7, dtype=np.int64)
-    p_legit = np.array([38, 28, 16, 9, 5, 2, 2], dtype=float)
-    p_fraud = np.array([8, 12, 18, 20, 18, 14, 10], dtype=float)
+    vals = np.arange(0, MAX_CONSECUTIVE_FAILURES + 1, dtype=np.int64)
+    p_legit = np.exp(-0.9 * vals)  # mostly 0–1
+    p_fraud = np.exp(-0.35 * (MAX_CONSECUTIVE_FAILURES - vals))  # skew high
     p_legit /= p_legit.sum()
     p_fraud /= p_fraud.sum()
     fi = np.flatnonzero(fraud_mask)
@@ -116,3 +119,25 @@ def inject_rolling_features_by_is_fraud(
     failed = sample_failed_txn_count_24h(fraud_mask, rng)
     conv = sample_consecutive_failures(fraud_mask, rng)
     return failed, conv
+
+
+def sample_amount_sum_1h_by_is_fraud(
+    txn_count_1h: np.ndarray,
+    fraud_mask: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Value-velocity feature: total outgoing amount in 1h.
+
+    Fraud rows get a higher per-txn average and larger variance, while still depending on
+    txn_count_1h so this feature stays coherent with velocity.
+    """
+    txn = np.clip(txn_count_1h.astype(np.float64), 1.0, float(MAX_TXN_COUNT_1H))
+    n = len(txn)
+
+    per_txn_legit = rng.lognormal(mean=np.log(650.0), sigma=0.55, size=n)
+    per_txn_fraud = rng.lognormal(mean=np.log(1500.0), sigma=0.75, size=n)
+    per_txn = np.where(fraud_mask, per_txn_fraud, per_txn_legit)
+
+    raw_sum = per_txn * txn
+    return np.clip(raw_sum, 0.0, float(MAX_AMOUNT_SUM_1H))

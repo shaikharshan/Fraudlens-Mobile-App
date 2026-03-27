@@ -333,10 +333,12 @@ class FirestorePaymentViewModel @Inject constructor(
         fraudScore: Float,
         locationRiskScore: Float,
         modelDecision: Boolean,
-        status:String,
+        status: String,
         ipRiskResult: AbuseRiskResult,
         location: Pair<Double,Double>,
         deviation: Double,
+        razorpayOrderId: String? = null, // Add this
+        razorpayPaymentId: String? = null // Add this
     ) {
         repository.collection(FirestoreCollection.USER.value)
             .whereEqualTo("bankVPA", receiverVpa)
@@ -380,18 +382,18 @@ class FirestorePaymentViewModel @Inject constructor(
                                         locationRiskScore = locationRiskScore,
                                         modelDecision = modelDecision,
                                         ipLogId = ipDoc.id,
-                                        locationLogId = locationDoc.id
+                                        locationLogId = locationDoc.id,
+                                        razorpayOrderId = razorpayOrderId, // Add this
+                                        razorpayPaymentId = razorpayPaymentId // Add this
                                     )
                                     repository.collection(FirestoreCollection.TRANSACTIONS.value)
                                         .add(transaction)
                                         .addOnSuccessListener {transactionDoc->
-                                            Log.d("Firestore", "Transaction added")
+                                            Log.d("Firestore", "Transaction added with Razorpay details")
                                         }
                                         .addOnFailureListener {
                                             Log.e("Firestore", "Failed to add transaction: ${it.message}")
                                         }
-
-
                                 }
                                 .addOnFailureListener {
                                     Log.e("Firestore", "Failed to add ip: ${it.message}")
@@ -558,7 +560,57 @@ class FirestorePaymentViewModel @Inject constructor(
 
     // AI model functions
 
-suspend fun prepareModelInput(
+    private fun isBlockedStatus(status: String?): Boolean {
+        return status?.equals("blocked", ignoreCase = true) == true
+    }
+
+    private data class FailureFeatures(
+        val failedTxnCount24h: Int,
+        val consecutiveFailures: Int
+    )
+
+    private suspend fun computeFailureFeatures(userId: String): FailureFeatures {
+        val twentyFourHoursAgo = Timestamp(Date(System.currentTimeMillis() - (24 * 3600 * 1000)))
+
+        val payerTxnsLast24h = repository
+            .collection(FirestoreCollection.TRANSACTIONS.value)
+            .whereEqualTo("payerUserId", userId)
+            .whereGreaterThan("timestamp", twentyFourHoursAgo)
+            .get()
+            .await()
+            .toObjects(FirestoreTransactions::class.java)
+
+        val failedTxnCount24h = payerTxnsLast24h.count { txn -> isBlockedStatus(txn.status) }
+
+        Log.d("NEW FEATURES CHECK","Failed txns 24h"+failedTxnCount24h.toString());
+
+
+        val payerTxnsLatestFirst = repository
+            .collection(FirestoreCollection.TRANSACTIONS.value)
+            .whereEqualTo("payerUserId", userId)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .get()
+            .await()
+            .toObjects(FirestoreTransactions::class.java)
+
+        var consecutiveFailures = 0
+        for (txn in payerTxnsLatestFirst) {
+            if (isBlockedStatus(txn.status)) {
+                consecutiveFailures += 1
+            } else {
+                break
+            }
+        }
+
+        Log.d("NEW FEATURES CHECK","Failed txns 24h"+failedTxnCount24h.toString());
+        return FailureFeatures(
+            failedTxnCount24h = failedTxnCount24h,
+            consecutiveFailures = consecutiveFailures
+        )
+    }
+
+
+    suspend fun prepareModelInput(
         receiver: FirestoreUser,
         amount: Double
     ): ModelInput? {
@@ -591,17 +643,26 @@ suspend fun prepareModelInput(
                 .await()
 
             val txnCount1h = txnCountSnapshot.size()
+            val amountSum1h = txnCountSnapshot
+                .toObjects(FirestoreTransactions::class.java)
+                .sumOf { txn -> txn.amount }
+
+            Log.d("NEW FEATURE AMOUNT SUM 1H",amountSum1h.toString())
+            val failureFeatures = computeFailureFeatures(currentUser?.userId ?: "")
 
             val input = ModelInput(
                 txn_id = txnId,
                 AMOUNT = amount,
+                amount_sum_1h = amountSum1h,
                 TXN_TIMESTAMP = txnTimestamp,
                 PAYER_VPA = payerVpa!!,
                 BENEFICIARY_VPA = receiver.bankVPA,
                 PAYER_IFSC = payerIfsc!!,
                 BENEFICIARY_IFSC = receiver.bankIFSC,
                 device_user_count = deviceUserCount,
-                txn_count_1h = txnCount1h
+                txn_count_1h = txnCount1h,
+                failed_txn_count_24h = failureFeatures.failedTxnCount24h,
+                consecutive_failures = failureFeatures.consecutiveFailures
             )
             return input
         } catch (e: Exception) {

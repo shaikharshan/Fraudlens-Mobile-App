@@ -39,7 +39,7 @@ fun LiveDetectionScreen(
     val scrollState = rememberScrollState()
 
     var showSettings by remember { mutableStateOf(false) }
-    var apiKeyInput by remember { mutableStateOf("YOUR_KEY") }
+    var apiKeyInput by remember { mutableStateOf("") }
 
     // Audio permission handling
     val audioPermissionState = rememberPermissionState(

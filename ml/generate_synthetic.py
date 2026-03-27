@@ -9,7 +9,8 @@ Usage (from repo root):
 
 Changing --device-features requires --refit or a different --prepared path so the cache matches.
 
-VPAs get label-conditioned lengths in prepare + again after sampling (see vpa_indian.inject_vpa_by_fraud_label).
+VPAs are normalized into valid UPI-like shapes, but are not label-conditioned. This avoids
+training a model that over-relies on VPA length (which can drift at inference).
 """
 
 from __future__ import annotations
@@ -39,10 +40,14 @@ from config import (
     DEFAULT_SYNTHESIZER,
     DEFAULT_SYNTHETIC_PATH,
     MAX_DEVICE_USER_COUNT,
+    MAX_FAILED_TXN_COUNT_24H,
+    MAX_CONSECUTIVE_FAILURES,
     MAX_TXN_COUNT_1H,
+    MAX_AMOUNT_SUM_1H,
     NIGHT_FRAUD_BOOST,
 )
 from prepare_data import (
+    apply_amount_sum_by_is_fraud,
     apply_rolling_features_by_is_fraud,
     apply_threshold_separation_by_is_fraud,
     dataframe_for_sdv,
@@ -88,6 +93,13 @@ def _sanitize_synthetic(df: pd.DataFrame) -> pd.DataFrame:
     out["PAYER_IFSC"] = _clean_ifsc(out["PAYER_IFSC"])
     out["BENEFICIARY_IFSC"] = _clean_ifsc(out["BENEFICIARY_IFSC"])
     out["AMOUNT"] = pd.to_numeric(out["AMOUNT"], errors="coerce").fillna(1.0).clip(lower=0.01)
+    if "amount_sum_1h" in out.columns:
+        out["amount_sum_1h"] = (
+            pd.to_numeric(out["amount_sum_1h"], errors="coerce")
+            .fillna(0.0)
+            .clip(lower=0.0, upper=MAX_AMOUNT_SUM_1H)
+            .astype(float)
+        )
     out["device_user_count"] = (
         pd.to_numeric(out["device_user_count"], errors="coerce")
         .fillna(1)
@@ -102,11 +114,17 @@ def _sanitize_synthetic(df: pd.DataFrame) -> pd.DataFrame:
     )
     if "failed_txn_count_24h" in out.columns:
         out["failed_txn_count_24h"] = (
-            pd.to_numeric(out["failed_txn_count_24h"], errors="coerce").fillna(0).clip(lower=0).astype(int)
+            pd.to_numeric(out["failed_txn_count_24h"], errors="coerce")
+            .fillna(0)
+            .clip(lower=0, upper=MAX_FAILED_TXN_COUNT_24H)
+            .astype(int)
         )
     if "consecutive_failures" in out.columns:
         out["consecutive_failures"] = (
-            pd.to_numeric(out["consecutive_failures"], errors="coerce").fillna(0).clip(lower=0).astype(int)
+            pd.to_numeric(out["consecutive_failures"], errors="coerce")
+            .fillna(0)
+            .clip(lower=0, upper=MAX_CONSECUTIVE_FAILURES)
+            .astype(int)
         )
     out["IS_FRAUD"] = pd.to_numeric(out["IS_FRAUD"], errors="coerce").fillna(0).clip(0, 1).astype(int)
     return out
@@ -192,10 +210,11 @@ def generate(
         apply_threshold_separation_by_is_fraud(synthetic, rng)
     if "IS_FRAUD" in synthetic.columns:
         apply_rolling_features_by_is_fraud(synthetic, rng)
+        apply_amount_sum_by_is_fraud(synthetic, rng)
     if all(c in synthetic.columns for c in ("TXN_TIMESTAMP", "is_night")):
         reconcile_timestamp_with_is_night(synthetic, rng)
 
-    rewrite_vpa_columns(synthetic, rng)
+    rewrite_vpa_columns(synthetic, rng, label_conditioned=False)
 
     synthetic.insert(0, "txn_id", [uuid.uuid4().hex[:24] for _ in range(len(synthetic))])
     synthetic = _strip_sdv_and_time_derivatives(synthetic)
