@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.example.fraudlens.MainActivity
+import com.example.fraudlens.demo.DemoAutomationBridge
 import com.example.fraudlens.data.local.entities.DEVIATION
 import com.example.fraudlens.data.local.entities.FLAG_COUNTDOWN_SEC
 import com.example.fraudlens.data.local.entities.FirestoreCollection
@@ -254,6 +255,12 @@ fun SendMoneyScreen(
     }
 
     LaunchedEffect(Unit) {
+        DemoAutomationBridge.consumeIpOverride()?.let { viewModel._transactionIP.value = it }
+        DemoAutomationBridge.consumeLocationOverride()?.let { viewModel._transactionLocation.value = it }
+        DemoAutomationBridge.consumeSendMoneyPrefill()?.let { prefill ->
+            recipientVPA = prefill.recipientVpa
+            amountInput = prefill.amount
+        }
         launch {
             focusRequester.requestFocus()
         }
