@@ -5,45 +5,86 @@ This folder does not modify or depend on in-place edits to existing Android app 
 
 ## Features
 
-- `POST /sms/analyze`:
-  - Input: `sender_id` + `message`
-  - Output: exactly `{is_scam, confidence_score, reasoning, recommendation}`
-- `WS /vishing/ws`:
-  - Input stream: base64 PCM audio chunks (`audio/pcm`)
-  - Output events: status, transcript, fraud_analysis, error
+- **`POST /sms/analyze`**: REST — `sender_id` + `message` → `{is_scam, confidence_score, reasoning, recommendation}`
+- **`WebSocket /vishing/ws`**: Live detection — base64 PCM audio and/or text; server streams status, transcript, `fraud_analysis`, errors
+- **`GET /health`**: Liveness check
 
-## Setup
+---
 
-1. Create and activate a Python virtual environment.
-2. Install dependencies:
+## API reference (paths)
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+| Purpose | Method | Path |
+|--------|--------|------|
+| Health | `GET` | `/health` |
+| SMS analysis | `POST` | `/sms/analyze` |
+| Live (vishing) | WebSocket | `/vishing/ws` |
 
-3. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
+Interactive OpenAPI (when the server is running):
 
-## Run
+- Swagger UI: `{BASE_URL}/docs`
+- OpenAPI JSON: `{BASE_URL}/openapi.json`
 
-```bash
-uvicorn app.main:app --reload
+Replace `{BASE_URL}` with your local or Cloud Run origin (no trailing slash).
+
+---
+
+## Deployed service (Cloud Run)
+
+**Example production base URL** (yours may differ if you redeploy or change region):
+
+```text
+https://fraudlens-blackbox-875422601666.us-central1.run.app
 ```
 
-Health:
+Set a shell variable for copy-paste examples:
 
 ```bash
-curl http://127.0.0.1:8000/health
+export BASE_URL="https://fraudlens-blackbox-875422601666.us-central1.run.app"
 ```
 
-## SMS API example
+### Production: health
 
 ```bash
-curl -X POST http://127.0.0.1:8000/sms/analyze \
+curl -s "${BASE_URL}/health"
+```
+
+Expected:
+
+```json
+{"status":"ok"}
+```
+
+### Production: SMS analyze
+
+**Request**
+
+- **URL:** `{BASE_URL}/sms/analyze`
+- **Method:** `POST`
+- **Headers:** `Content-Type: application/json`
+- **Body:**
+
+| Field | Type | Required |
+|-------|------|----------|
+| `sender_id` | string | yes (non-empty) |
+| `message` | string | yes (non-empty) |
+
+**curl**
+
+```bash
+curl -s -X POST "${BASE_URL}/sms/analyze" \
   -H "Content-Type: application/json" \
-  -d "{\"sender_id\":\"VM-HDFCBK\",\"message\":\"Your account blocked. Click http://bit.ly/x to verify.\"}"
+  -d '{"sender_id":"VM-HDFCBK","message":"Your account blocked. Click http://bit.ly/x to verify."}'
 ```
 
-Expected response shape:
+**PowerShell**
+
+```powershell
+$BASE_URL = "https://fraudlens-blackbox-875422601666.us-central1.run.app"
+$body = @{ sender_id = "VM-HDFCBK"; message = "Your account blocked. Click http://bit.ly/x to verify." } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$BASE_URL/sms/analyze" -ContentType "application/json" -Body $body
+```
+
+**Response (200)**
 
 ```json
 {
@@ -54,19 +95,126 @@ Expected response shape:
 }
 ```
 
-## Vishing WebSocket protocol
+### Production: live detection (WebSocket)
 
-Connect:
+Use **`wss://`** (TLS), same host and path:
 
-- `ws://127.0.0.1:8000/vishing/ws`
+```text
+wss://fraudlens-blackbox-875422601666.us-central1.run.app/vishing/ws
+```
 
-Client -> server messages:
+**Client → server** (send each message as one WebSocket **text** frame containing JSON):
+
+| `type` | Fields | Purpose |
+|--------|--------|---------|
+| `audio` | `data_b64` (required), `mime_type` (optional, default `audio/pcm`) | PCM chunk, base64 |
+| `text` | `text` (required) | Text for the model |
+| `disconnect` | — | End session |
+
+Examples:
+
+```json
+{"type":"audio","data_b64":"<base64>","mime_type":"audio/pcm"}
+```
+
+```json
+{"type":"text","text":"Hello, please share OTP to unblock account"}
+```
+
+```json
+{"type":"disconnect"}
+```
+
+**Server → client** (JSON objects):
+
+| `event` | Extra | Meaning |
+|---------|--------|---------|
+| `status` | `message` | Status line |
+| `transcript` | `text`, `is_user` | Transcript |
+| `fraud_analysis` | `analysis` (same fields as SMS response) | Fraud result |
+| `error` | `message` | Error |
+
+**Demo client (this repo)**
+
+```bash
+pip install -r requirements.txt
+python scripts/ws_client_demo.py --url "wss://fraudlens-blackbox-875422601666.us-central1.run.app/vishing/ws"
+```
+
+With raw PCM (16-bit mono, 16 kHz):
+
+```bash
+python scripts/ws_client_demo.py --url "wss://fraudlens-blackbox-875422601666.us-central1.run.app/vishing/ws" --pcm-file path/to/audio.pcm
+```
+
+**wscat (Node.js)**
+
+```bash
+npx wscat -c "wss://fraudlens-blackbox-875422601666.us-central1.run.app/vishing/ws"
+```
+
+After connect, paste e.g. `{"type":"text","text":"Hello, please share OTP to unblock account"}` then `{"type":"disconnect"}`.
+
+---
+
+## Local development
+
+### Setup
+
+1. Create and activate a Python virtual environment.
+2. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Set `GEMINI_API_KEY` in your environment or create a `.env` file in this directory (`python-dotenv` loads it on startup).
+
+### Run
+
+```bash
+uvicorn app.main:app --reload
+```
+
+**Local base URL:** `http://127.0.0.1:8000`
+
+### Local: health
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+### Local: SMS
+
+```bash
+curl -X POST http://127.0.0.1:8000/sms/analyze \
+  -H "Content-Type: application/json" \
+  -d "{\"sender_id\":\"VM-HDFCBK\",\"message\":\"Your account blocked. Click http://bit.ly/x to verify.\"}"
+```
+
+### Local: WebSocket
+
+- URL: `ws://127.0.0.1:8000/vishing/ws`
+
+```bash
+python scripts/ws_client_demo.py
+```
+
+With PCM file:
+
+```bash
+python scripts/ws_client_demo.py --pcm-file path/to/audio.pcm
+```
+
+### Vishing WebSocket protocol (reference)
+
+**Client → server**
 
 - `{"type":"audio","data_b64":"...","mime_type":"audio/pcm"}`
-- `{"type":"text","text":"Analyze this phrase..."}` (optional helper)
+- `{"type":"text","text":"Analyze this phrase..."}`
 - `{"type":"disconnect"}`
 
-Server -> client events:
+**Server → client**
 
 - `{"event":"status","message":"Connecting to Gemini..."}`
 - `{"event":"status","message":"Connected to Gemini"}`
@@ -75,14 +223,15 @@ Server -> client events:
 - `{"event":"fraud_analysis","analysis":{"is_scam":true,"confidence_score":0.8,"reasoning":"...","recommendation":"..."}}`
 - `{"event":"error","message":"..."}`
 
-## Demo WebSocket client
+---
+
+## Docker / Cloud Run
+
+Build and run locally:
 
 ```bash
-python scripts/ws_client_demo.py
+docker build -t fraudlens-blackbox .
+docker run --rm -e PORT=8080 -e GEMINI_API_KEY=your_key -p 8080:8080 fraudlens-blackbox
 ```
 
-With a raw PCM file:
-
-```bash
-python scripts/ws_client_demo.py --pcm-file path/to/audio.pcm
-```
+Deploy uses the same image; set `GEMINI_API_KEY` via Secret Manager on Cloud Run (see project root deployment notes if any).
