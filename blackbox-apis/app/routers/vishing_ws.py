@@ -36,7 +36,9 @@ async def vishing_websocket(websocket: WebSocket) -> None:
         await websocket.close(code=1011)
         return
 
-    await websocket.send_json({"event": "status", "message": "Connected to Gemini"})
+    await websocket.send_json(
+        {"event": "status", "message": f"Connected to Gemini ({bridge.active_model})"}
+    )
 
     # Serialize outbound events through one task to avoid concurrent send issues.
     event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=500)

@@ -170,7 +170,12 @@ After connect, paste e.g. `{"type":"text","text":"Hello, please share OTP to unb
 
 3. Set `GEMINI_API_KEY` in your environment or create a `.env` file in this directory (`python-dotenv` loads it on startup).
 
-4. **Live / vishing WebSocket** uses Gemini [2.5 Flash Live Preview](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-native-audio-preview-12-2025) by default (`gemini-2.5-flash-native-audio-preview-12-2025`). The old `gemini-2.0-flash-exp` model is not valid for `BidiGenerateContent` anymore. To override the Live model, set optional env var `GEMINI_LIVE_MODEL` (with or without the `models/` prefix). Another documented Live model is `gemini-3.1-flash-live-preview` if your API key has access.
+4. **Model fallback support**
+   - SMS uses an ordered fallback list via `GEMINI_SMS_FALLBACK_MODELS` (comma-separated). Defaults:
+     `gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.5-pro,gemini-2.5-flash-preview-09-2025,gemini-2.0-flash-001,gemini-2.0-flash-lite-001`
+   - Live / vishing WebSocket uses `GEMINI_LIVE_FALLBACK_MODELS` (comma-separated). Default order:
+     `gemini-2.5-flash-native-audio-preview-12-2025,gemini-3.1-flash-live-preview`
+   - `GEMINI_LIVE_MODEL` is still supported and is used as the first default live model when explicit `GEMINI_LIVE_FALLBACK_MODELS` is not provided.
 
 ### Run
 
@@ -236,6 +241,8 @@ Build and run locally:
 docker build -t fraudlens-blackbox .
 docker run --rm -e PORT=8080 -e GEMINI_API_KEY=your_key -p 8080:8080 fraudlens-blackbox
 # Optional: -e GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
+# Optional: -e GEMINI_SMS_FALLBACK_MODELS=gemini-2.5-flash,gemini-2.5-flash-lite,gemini-2.5-pro
+# Optional: -e GEMINI_LIVE_FALLBACK_MODELS=gemini-2.5-flash-native-audio-preview-12-2025,gemini-3.1-flash-live-preview
 ```
 
 Deploy uses the same image; set `GEMINI_API_KEY` via Secret Manager on Cloud Run (see project root deployment notes if any).

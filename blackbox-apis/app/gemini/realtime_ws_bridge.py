@@ -23,24 +23,39 @@ class GeminiRealtimeBridge:
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
         self._upstream: WebSocketClientProtocol | None = None
+        self._active_model: str | None = None
 
     async def connect(self) -> None:
         ws_url = (
             "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta."
             f"GenerativeService.BidiGenerateContent?key={self.api_key}"
         )
-        self._upstream = await websockets.connect(ws_url, max_size=8_000_000)
-        await self._send_json(self._setup_payload())
-        # Wait for setupComplete before accepting client audio/text (avoids dropped / no-op turns).
-        first = await self._recv_text()
-        payload = self._safe_json(first)
-        if payload is None:
-            raise RuntimeError(f"Upstream sent non-JSON first frame: {first[:200]!r}")
-        if payload.get("setupComplete") is None:
-            raise RuntimeError(
-                "Expected setupComplete from Gemini after setup; got keys: "
-                f"{list(payload.keys())}"
-            )
+        errors: list[str] = []
+        for model_id in settings.gemini_live_fallback_models:
+            ws: WebSocketClientProtocol | None = None
+            try:
+                ws = await websockets.connect(ws_url, max_size=8_000_000)
+                self._upstream = ws
+                await self._send_json(self._setup_payload(model_id))
+                # Wait for setupComplete before accepting client audio/text (avoids dropped / no-op turns).
+                first = await self._recv_text()
+                payload = self._safe_json(first)
+                if payload is None:
+                    raise RuntimeError(f"Upstream sent non-JSON first frame: {first[:200]!r}")
+                if payload.get("setupComplete") is None:
+                    raise RuntimeError(
+                        "Expected setupComplete from Gemini after setup; got keys: "
+                        f"{list(payload.keys())}"
+                    )
+                self._active_model = model_id
+                return
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{model_id}: {exc}")
+                self._upstream = None
+                if ws is not None:
+                    await ws.close()
+                continue
+        raise RuntimeError(f"All Gemini live models failed: {'; '.join(errors)}")
 
     async def close(self) -> None:
         if self._upstream is not None:
@@ -120,8 +135,7 @@ class GeminiRealtimeBridge:
             raise RuntimeError("Gemini realtime bridge not connected")
         await self._upstream.send(json.dumps(payload))
 
-    def _setup_payload(self) -> dict[str, Any]:
-        model_id = settings.gemini_live_model
+    def _setup_payload(self, model_id: str) -> dict[str, Any]:
         if not model_id.startswith("models/"):
             model_id = f"models/{model_id}"
         return {
@@ -148,6 +162,10 @@ class GeminiRealtimeBridge:
                 "outputAudioTranscription": {},
             }
         }
+
+    @property
+    def active_model(self) -> str:
+        return self._active_model or settings.gemini_live_fallback_models[0]
 
     def _map_upstream_to_events(self, payload: dict[str, Any]) -> list[dict[str, Any]]:
         events: list[dict[str, Any]] = []
