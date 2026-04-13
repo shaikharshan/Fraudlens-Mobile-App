@@ -26,7 +26,9 @@ async def main() -> None:
         if args.pcm_file and os.path.exists(args.pcm_file):
             with open(args.pcm_file, "rb") as f:
                 b64 = base64.b64encode(f.read()).decode("utf-8")
-            await ws.send(json.dumps({"type": "audio", "data_b64": b64, "mime_type": "audio/pcm"}))
+            await ws.send(
+                json.dumps({"type": "audio", "data_b64": b64, "mime_type": "audio/pcm;rate=16000"})
+            )
             print(">> sent audio chunk from", args.pcm_file)
         else:
             # Optional text trigger for fraud analysis, mirrors app-side helper behavior.

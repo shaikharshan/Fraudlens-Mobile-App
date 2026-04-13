@@ -107,14 +107,14 @@ wss://fraudlens-blackbox-875422601666.us-central1.run.app/vishing/ws
 
 | `type` | Fields | Purpose |
 |--------|--------|---------|
-| `audio` | `data_b64` (required), `mime_type` (optional, default `audio/pcm`) | PCM chunk, base64 |
+| `audio` | `data_b64` (required), `mime_type` (optional, default `audio/pcm;rate=16000`) | Raw PCM16 mono LE @ 16 kHz, base64 |
 | `text` | `text` (required) | Text for the model |
 | `disconnect` | — | End session |
 
 Examples:
 
 ```json
-{"type":"audio","data_b64":"<base64>","mime_type":"audio/pcm"}
+{"type":"audio","data_b64":"<base64>","mime_type":"audio/pcm;rate=16000"}
 ```
 
 ```json
@@ -170,6 +170,8 @@ After connect, paste e.g. `{"type":"text","text":"Hello, please share OTP to unb
 
 3. Set `GEMINI_API_KEY` in your environment or create a `.env` file in this directory (`python-dotenv` loads it on startup).
 
+4. **Live / vishing WebSocket** uses Gemini [2.5 Flash Live Preview](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-native-audio-preview-12-2025) by default (`gemini-2.5-flash-native-audio-preview-12-2025`). The old `gemini-2.0-flash-exp` model is not valid for `BidiGenerateContent` anymore. To override the Live model, set optional env var `GEMINI_LIVE_MODEL` (with or without the `models/` prefix). Another documented Live model is `gemini-3.1-flash-live-preview` if your API key has access.
+
 ### Run
 
 ```bash
@@ -210,18 +212,19 @@ python scripts/ws_client_demo.py --pcm-file path/to/audio.pcm
 
 **Client → server**
 
-- `{"type":"audio","data_b64":"...","mime_type":"audio/pcm"}`
+- `{"type":"audio","data_b64":"...","mime_type":"audio/pcm;rate=16000"}` (plain `audio/pcm` is normalized to `audio/pcm;rate=16000` upstream)
 - `{"type":"text","text":"Analyze this phrase..."}`
 - `{"type":"disconnect"}`
 
 **Server → client**
 
 - `{"event":"status","message":"Connecting to Gemini..."}`
-- `{"event":"status","message":"Connected to Gemini"}`
+- `{"event":"status","message":"Connected to Gemini"}` — wait for this before sending `audio` / `text` (the server buffers Gemini setup until setup completes).
 - `{"event":"transcript","text":"...","is_user":true}`
 - `{"event":"transcript","text":"...","is_user":false}`
 - `{"event":"fraud_analysis","analysis":{"is_scam":true,"confidence_score":0.8,"reasoning":"...","recommendation":"..."}}`
 - `{"event":"error","message":"..."}`
+- `{"event":"upstream_debug","keys":["..."]}` — only when env `FRAUDLENS_VISHING_DEBUG=1` and a frame was not mapped to transcript/analysis.
 
 ---
 
@@ -232,6 +235,7 @@ Build and run locally:
 ```bash
 docker build -t fraudlens-blackbox .
 docker run --rm -e PORT=8080 -e GEMINI_API_KEY=your_key -p 8080:8080 fraudlens-blackbox
+# Optional: -e GEMINI_LIVE_MODEL=gemini-2.5-flash-native-audio-preview-12-2025
 ```
 
 Deploy uses the same image; set `GEMINI_API_KEY` via Secret Manager on Cloud Run (see project root deployment notes if any).

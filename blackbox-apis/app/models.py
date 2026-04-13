@@ -41,7 +41,7 @@ class FraudAnalysisEvent(BaseModel):
 class WsAudioMessage(BaseModel):
     type: Literal["audio"]
     data_b64: str = Field(..., min_length=1)
-    mime_type: str = "audio/pcm"
+    mime_type: str = "audio/pcm;rate=16000"
 
 
 class WsDisconnectMessage(BaseModel):
